@@ -61,6 +61,7 @@ impl<T> MyVec<T> {
                     self.ptr.as_ptr() as *mut u8, layout, new_size);
                 let ptr = NonNull::new(ptr as *mut T).expect("Could not allocate");
                 ptr.as_ptr().add(self.len).write(item);
+
                 ptr
             };
             self.ptr = ptr;
@@ -146,7 +147,45 @@ impl<T> MyVec<T> {
         }
     }
 
-    // append, retain and insert
+    fn append(&mut self, other: &mut MyVec<T>) {
+        let len = self.len.checked_add(other.len).expect("Can't reach memory location");
+        assert!(len < isize::MAX as usize);
+        if len <= self.capacity {
+            unsafe {
+                for i in 0..other.len {
+                    self.ptr.as_ptr().add(self.len + i).write(
+                        std::ptr::read(other.ptr.as_ptr().add(i)));
+                }
+            }
+            self.len = len;
+        } else {
+            let align = std::mem::align_of::<T>();
+            let size = std::mem::size_of::<T>() * self.capacity;
+            size.checked_add(align - (size % align)).expect("Can't allocate");
+            let mut new_capacity = self.capacity;
+            while new_capacity < len {
+                new_capacity = new_capacity.checked_mul(2)
+                    .expect("Capacity wrapped");
+            }
+            let ptr = unsafe {
+                let layout = alloc::Layout::
+                    from_size_align_unchecked(size, align);
+                let new_size = std::mem::size_of::<T>() * new_capacity;
+                let ptr = alloc::realloc(
+                    self.ptr.as_ptr() as *mut u8, layout, new_size);
+                let ptr = NonNull::new(ptr as *mut T).expect("Could not allocate");
+                for i in 0..other.len {
+                    self.ptr.as_ptr().add(self.len + i).write(
+                        std::ptr::read(other.ptr.as_ptr().add(i)));
+                }
+                ptr
+            };
+            self.ptr = ptr;
+            self.len = len;
+            other.len = 0;
+            self.capacity = new_capacity;
+        }
+    }
 }
 
 impl<T> Drop for MyVec<T> {
@@ -259,5 +298,26 @@ mod tests {
         assert_eq!(vec.capacity(), 8);
         assert_eq!(vec.remove(0), 4);
         assert_eq!(vec.len(), 4);
+    }
+
+    #[test]
+    fn test_append() {
+        let mut vec: MyVec<usize> = MyVec::new();
+        vec.insert(1, 0);
+        vec.insert(4, 0);
+        vec.insert(2, 1);
+        vec.insert(0, 2);
+        vec.insert(8, 2);
+
+        let mut vec2: MyVec<usize> = MyVec::new();
+        vec2.push(4);
+        vec2.push(2);
+        vec2.push(1);
+        vec2.push(5);
+        vec2.push(6);
+        vec.append(&mut vec2);
+        assert_eq!(vec.len(), 10);
+        assert_eq!(vec2.len(), 0);
+        assert_eq!(vec.capacity(), 16);
     }
 }
