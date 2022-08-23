@@ -1,14 +1,15 @@
 use std::ptr::NonNull;
 use std::alloc;
+use std::fmt;
 
-struct MyVec<T> {
+pub struct MyVec<T> {
     ptr: NonNull<T>,
     len: usize,
     capacity: usize,
 }
 
 impl<T> MyVec<T> {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             ptr: NonNull::<T>::dangling(), 
             len: 0,
@@ -16,15 +17,15 @@ impl<T> MyVec<T> {
         }
     }
 
-    fn capacity(&self) -> usize {
+    pub fn capacity(&self) -> usize {
         self.capacity
     }
     
-    fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.len
     }
 
-    fn push(&mut self, item: T) {
+    pub fn push(&mut self, item: T) {
         assert_ne!(std::mem::size_of::<T>(), 0, "No zero sized types");
         if self.capacity == 0 {
             let layout = alloc::Layout::array::<T>(4)
@@ -70,7 +71,7 @@ impl<T> MyVec<T> {
         }
     }
 
-    fn insert(&mut self, item: T, index: usize) {
+    pub fn insert(&mut self, item: T, index: usize) {
         assert!(index >= 0);
         assert!(index <= self.len);
         if self.capacity == 0 {
@@ -116,14 +117,14 @@ impl<T> MyVec<T> {
         }
     }
     
-    fn get(&self, index: usize) -> Option<&T> {
+    pub fn get(&self, index: usize) -> Option<&T> {
         if index >= self.len {
             return None;
         }
         unsafe { Some(&*self.ptr.as_ptr().add(index)) }
     }
 
-    fn pop(&mut self) -> Option<T> {
+    pub fn pop(&mut self) -> Option<T> {
         if self.len == 0 {
             return None;
         }
@@ -133,7 +134,7 @@ impl<T> MyVec<T> {
         }
     }
 
-    fn remove(&mut self, index: usize) -> T {
+    pub fn remove(&mut self, index: usize) -> T {
         assert!(index >= 0);
         assert!(index < self.len);
         unsafe {
@@ -147,7 +148,7 @@ impl<T> MyVec<T> {
         }
     }
 
-    fn append(&mut self, other: &mut MyVec<T>) {
+    pub fn append(&mut self, other: &mut MyVec<T>) {
         let len = self.len.checked_add(other.len).expect("Can't reach memory location");
         assert!(len < isize::MAX as usize);
         if len <= self.capacity {
@@ -190,7 +191,6 @@ impl<T> MyVec<T> {
 
 impl<T> Drop for MyVec<T> {
     fn drop(&mut self) {
-        println!("drop");
         if self.ptr != NonNull::dangling() {
             unsafe {
                 std::ptr::drop_in_place(
@@ -203,121 +203,40 @@ impl<T> Drop for MyVec<T> {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[derive(PartialEq, Debug)]
-    struct Test;
-
-    #[test]
-    fn test_myvec() {
-        let mut vec: MyVec<usize> = MyVec::new();
-        vec.push(4);
-        vec.push(2);
-        vec.push(1);
-        vec.push(5);
-        vec.push(6);
-        assert_eq!(vec.len(), 5);
-        assert_eq!(vec.get(2), Some(&1));
-        assert_eq!(vec.capacity(), 8);
-    }
-
-    #[test]
-    fn test_string() {
-        let mut vec: MyVec<String> = MyVec::new();
-        vec.push(String::from("Hallo"));
-        vec.push(String::from("ik"));
-        vec.push(String::from("ben"));
-        vec.push(String::from("Daan"));
-        vec.push(String::from("!"));
-        assert_eq!(vec.len(), 5);
-        let string = String::from("Daan");
-        assert_eq!(vec.get(3), Some(&string));
-        assert_eq!(vec.capacity(), 8);
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_struct() {
-        let mut vec: MyVec<Test> = MyVec::new();
-        vec.push(Test);
-    }
-
-    #[test]
-    fn test_pop() {
-        let mut vec: MyVec<usize> = MyVec::new();
-        vec.push(4);
-        vec.push(2);
-        vec.push(1);
-        vec.push(5);
-        vec.push(6);
-        assert_eq!(vec.pop(), Some(6));
-        assert_eq!(vec.pop(), Some(5));
-        assert_eq!(vec.len(), 3);
-        assert_eq!(vec.capacity(), 8);
-        assert_eq!(vec.pop(), Some(1));
-        assert_eq!(vec.pop(), Some(2));
-        assert_eq!(vec.len(), 1);
-        assert_eq!(vec.pop(), Some(4));
-        assert_eq!(vec.pop(), None);
-        assert_eq!(vec.len(), 0);
-    }
-
-    #[test]
-    fn test_remove() {
-        let mut vec: MyVec<usize> = MyVec::new();
-        vec.push(4);
-        vec.push(2);
-        vec.push(1);
-        vec.push(5);
-        vec.push(6);
-        assert_eq!(vec.remove(2), 1);
-        assert_eq!(vec.len(), 4);
-        assert_eq!(vec.remove(0), 4);
-        assert_eq!(vec.remove(2), 6);
-        assert_eq!(vec.len(), 2);
-        assert_eq!(vec.capacity(), 8);
-        assert_eq!(vec.remove(0), 2);
-        assert_eq!(vec.remove(0), 5);
-        assert_eq!(vec.len(), 0);
-    }
-
-    #[test]
-    fn test_insert() {
-        let mut vec: MyVec<usize> = MyVec::new();
-        vec.insert(1, 0);
-        vec.insert(4, 0);
-        vec.insert(2, 1);
-        vec.insert(0, 2);
-        vec.insert(8, 2);
-        assert_eq!(vec.len(), 5);
-        assert_eq!(vec.get(2), Some(&8));
-        assert_eq!(vec.get(1), Some(&2));
-        assert_eq!(vec.get(0), Some(&4));
-        assert_eq!(vec.capacity(), 8);
-        assert_eq!(vec.remove(0), 4);
-        assert_eq!(vec.len(), 4);
-    }
-
-    #[test]
-    fn test_append() {
-        let mut vec: MyVec<usize> = MyVec::new();
-        vec.insert(1, 0);
-        vec.insert(4, 0);
-        vec.insert(2, 1);
-        vec.insert(0, 2);
-        vec.insert(8, 2);
-
-        let mut vec2: MyVec<usize> = MyVec::new();
-        vec2.push(4);
-        vec2.push(2);
-        vec2.push(1);
-        vec2.push(5);
-        vec2.push(6);
-        vec.append(&mut vec2);
-        assert_eq!(vec.len(), 10);
-        assert_eq!(vec2.len(), 0);
-        assert_eq!(vec.capacity(), 16);
+impl<T> Clone for MyVec<T> {
+    fn clone (&self) -> Self {
+        let layout = alloc::Layout::array::<T>(self.capacity)
+            .expect("Could not allocate");
+        let ptr = unsafe { alloc::alloc(layout) } as *mut T;
+        let ptr = NonNull::new(ptr).expect("Could not allocate");
+        unsafe {
+            for i in 0..self.len {
+                let item = std::ptr::read(self.ptr.as_ptr().add(i));
+                ptr.as_ptr().add(i).write(item);
+            }
+        }
+        MyVec {
+            ptr: ptr,
+            len: self.len,
+            capacity: self.capacity,
+        }
     }
 }
+
+impl<T: fmt::Debug + fmt::Display> fmt::Debug for MyVec<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "[");
+        unsafe {
+            for i in 0..self.len {
+                if i == self.len - 1 {
+                    write!(f, "\"{}\"", std::ptr::read(self.ptr.as_ptr().add(i)));
+                } else {
+                    write!(f, "\"{}\", ", std::ptr::read(self.ptr.as_ptr().add(i)));
+                }
+            }
+        }
+        write!(f, "]");
+        Ok(())
+    }
+}
+
