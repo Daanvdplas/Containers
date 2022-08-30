@@ -1,6 +1,9 @@
 use std::ptr::NonNull;
 use std::alloc;
 use std::fmt;
+use crate::myiter::*;
+
+pub mod myiter;
 
 pub struct MyVec<T> {
     ptr: NonNull<T>,
@@ -186,6 +189,10 @@ impl<T> MyVec<T> {
             other.len = 0;
             self.capacity = new_capacity;
         }
+    }
+    
+    pub fn into_iter(self) -> MyIntoIter<T> {
+        myiter::MyIntoIter(self)
     }
 }
 

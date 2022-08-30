@@ -1,4 +1,5 @@
-use containers::MyVec;
+use containers::*;
+use containers::myiter::MyIterator;
 
 #[derive(PartialEq, Debug)]
 struct Test;
@@ -127,4 +128,18 @@ fn test_clone() {
     assert_eq!(cloned.capacity(), 8);
     assert_eq!(cloned.get(2), Some(&1));
     assert_eq!(cloned.pop(), Some(6));
+}
+
+#[test]
+fn test_iter() {
+    let mut vec: MyVec<usize> = MyVec::new();
+    vec.push(4);
+    vec.push(2);
+    vec.push(1);
+    vec.push(5);
+    vec.push(6);
+    let mut iter = vec.into_iter();
+    assert_eq!(iter.next(), Some(4));
+    assert_eq!(iter.next(), Some(2));
+    assert_eq!(iter.next(), Some(1));
 }
